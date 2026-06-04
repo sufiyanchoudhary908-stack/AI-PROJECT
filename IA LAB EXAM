@@ -1,152 +1,131 @@
+# Tic-Tac-Toe Game using Minimax Algorithm (GUI Version)
+
 import tkinter as tk
-import random
+from tkinter import messagebox
 
-# Game settings
-WIDTH = 600
-HEIGHT = 400
-CELL_SIZE = 20
-SPEED = 100
+# Initialize the board
+board = [' ' for _ in range(9)]
 
-class SnakeGame:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Snake Game")
+HUMAN = 'X'
+AI = 'O'
 
-        self.canvas = tk.Canvas(root, width=WIDTH, height=HEIGHT, bg="black")
-        self.canvas.pack()
 
-        self.score = 0
-        self.score_label = tk.Label(
-            root,
-            text=f"Score: {self.score}",
-            font=("Arial", 14, "bold")
-        )
-        self.score_label.pack()
+# Function to check for a winner
+def check_winner(board, player):
+    win_conditions = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],   # Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],   # Columns
+        [0, 4, 8], [2, 4, 6]               # Diagonals
+    ]
+    for condition in win_conditions:
+        if all(board[i] == player for i in condition):
+            return True
+    return False
 
-        self.reset_game()
 
-        self.root.bind("<Up>", lambda event: self.change_direction("Up"))
-        self.root.bind("<Down>", lambda event: self.change_direction("Down"))
-        self.root.bind("<Left>", lambda event: self.change_direction("Left"))
-        self.root.bind("<Right>", lambda event: self.change_direction("Right"))
+# Function to check if the board is full (draw condition)
+def is_draw(board):
+    return ' ' not in board
 
-        self.move_snake()
 
-    def reset_game(self):
-        self.canvas.delete("all")
+# Minimax Algorithm
+def minimax(board, depth, is_maximizing):
+    if check_winner(board, AI):
+        return 1
+    if check_winner(board, HUMAN):
+        return -1
+    if is_draw(board):
+        return 0
 
-        self.snake = [(100, 100), (80, 100), (60, 100)]
-        self.direction = "Right"
+    if is_maximizing:
+        best_score = -float('inf')
+        for i in range(9):
+            if board[i] == ' ':
+                board[i] = AI
+                score = minimax(board, depth + 1, False)
+                board[i] = ' '
+                best_score = max(best_score, score)
+        return best_score
+    else:
+        best_score = float('inf')
+        for i in range(9):
+            if board[i] == ' ':
+                board[i] = HUMAN
+                score = minimax(board, depth + 1, True)
+                board[i] = ' '
+                best_score = min(best_score, score)
+        return best_score
 
-        self.food = self.create_food()
 
-        self.score = 0
-        self.score_label.config(text=f"Score: {self.score}")
+# Function to determine the best move for AI
+def best_move(board):
+    best_score = -float('inf')
+    move = -1
+    for i in range(9):
+        if board[i] == ' ':
+            board[i] = AI
+            score = minimax(board, 0, False)
+            board[i] = ' '
+            if score > best_score:
+                best_score = score
+                move = i
+    return move
 
-    def create_food(self):
-        x = random.randint(0, (WIDTH // CELL_SIZE) - 1) * CELL_SIZE
-        y = random.randint(0, (HEIGHT // CELL_SIZE) - 1) * CELL_SIZE
 
-        self.canvas.create_oval(
-            x, y,
-            x + CELL_SIZE, y + CELL_SIZE,
-            fill="red",
-            tag="food"
-        )
+# Function to handle a button click (Human move)
+def on_click(index):
+    if board[index] != ' ':
+        return
 
-        return (x, y)
+    board[index] = HUMAN
+    buttons[index].config(text=HUMAN, fg="blue")
 
-    def draw_snake(self):
-        self.canvas.delete("snake")
+    if check_winner(board, HUMAN):
+        messagebox.showinfo("Game Over", "Congratulations! You win!")
+        reset_game()
+        return
+    if is_draw(board):
+        messagebox.showinfo("Game Over", "It's a draw!")
+        reset_game()
+        return
 
-        for x, y in self.snake:
-            self.canvas.create_rectangle(
-                x, y,
-                x + CELL_SIZE,
-                y + CELL_SIZE,
-                fill="lime",
-                outline="black",
-                tag="snake"
-            )
+    # AI move
+    ai_move = best_move(board)
+    board[ai_move] = AI
+    buttons[ai_move].config(text=AI, fg="red")
 
-    def change_direction(self, new_direction):
-        opposite = {
-            "Up": "Down",
-            "Down": "Up",
-            "Left": "Right",
-            "Right": "Left"
-        }
+    if check_winner(board, AI):
+        messagebox.showinfo("Game Over", "AI wins! Better luck next time.")
+        reset_game()
+        return
+    if is_draw(board):
+        messagebox.showinfo("Game Over", "It's a draw!")
+        reset_game()
+        return
 
-        if opposite[self.direction] != new_direction:
-            self.direction = new_direction
 
-    def move_snake(self):
-        head_x, head_y = self.snake[0]
+# Function to reset the board
+def reset_game():
+    global board
+    board = [' ' for _ in range(9)]
+    for btn in buttons:
+        btn.config(text=' ')
 
-        if self.direction == "Up":
-            head_y -= CELL_SIZE
-        elif self.direction == "Down":
-            head_y += CELL_SIZE
-        elif self.direction == "Left":
-            head_x -= CELL_SIZE
-        elif self.direction == "Right":
-            head_x += CELL_SIZE
 
-        new_head = (head_x, head_y)
-
-        # Collision with walls
-        if (
-            head_x < 0 or head_x >= WIDTH or
-            head_y < 0 or head_y >= HEIGHT
-        ):
-            self.game_over()
-            return
-
-        # Collision with itself
-        if new_head in self.snake:
-            self.game_over()
-            return
-
-        self.snake.insert(0, new_head)
-
-        # Eat food
-        if new_head == self.food:
-            self.score += 1
-            self.score_label.config(text=f"Score: {self.score}")
-
-            self.canvas.delete("food")
-            self.food = self.create_food()
-        else:
-            self.snake.pop()
-
-        self.draw_snake()
-
-        self.root.after(SPEED, self.move_snake)
-
-    def game_over(self):
-        self.canvas.create_text(
-            WIDTH // 2,
-            HEIGHT // 2,
-            text=f"GAME OVER\nScore: {self.score}",
-            fill="white",
-            font=("Arial", 24, "bold")
-        )
-
-        restart = self.canvas.create_text(
-            WIDTH // 2,
-            HEIGHT // 2 + 60,
-            text="Press R to Restart",
-            fill="yellow",
-            font=("Arial", 16)
-        )
-
-        self.root.bind("r", self.restart)
-
-    def restart(self, event=None):
-        self.root.unbind("r")
-        self.reset_game()
-        self.move_snake()
-
+# Main GUI setup
 root = tk.Tk()
-game = SnakeGame(root)
+root.title("Tic-Tac-Toe (AI - Minimax)")
+
+buttons = []
+for i in range(9):
+    btn = tk.Button(root, text=' ', font=('Arial', 30, 'bold'),
+                    width=5, height=2,
+                    command=lambda i=i: on_click(i))
+    btn.grid(row=i // 3, column=i % 3)
+    buttons.append(btn)
+
+reset_btn = tk.Button(root, text="Reset", font=('Arial', 14),
+                     command=reset_game)
+reset_btn.grid(row=3, column=0, columnspan=3, sticky="we")
+
 root.mainloop()
